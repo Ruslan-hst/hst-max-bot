@@ -6,6 +6,8 @@ from maxapi.types import (
     MessageCreated, BotStarted,
     RequestContactButton, ButtonsPayload, ContactAttachmentPayload
 )
+from maxapi.types.attachments.buttons.attachment_button import AttachmentButton
+from maxapi.enums import AttachmentType
 
 logging.basicConfig(level=logging.INFO)
 
@@ -26,9 +28,10 @@ async def notify_owner(text):
 
 
 def contact_keyboard():
-    return ButtonsPayload(
+    payload = ButtonsPayload(
         buttons=[[RequestContactButton(text="📞 Поделиться номером телефона")]]
     )
+    return AttachmentButton(type=AttachmentType.INLINE_KEYBOARD, payload=payload)
 
 
 async def send_welcome(user_id, name, username):
@@ -38,15 +41,22 @@ async def send_welcome(user_id, name, username):
         f"🔗 {username}\n"
         f"🆔 ID: {user_id}"
     )
-    await bot.send_message(
-        user_id=user_id,
-        text=(
-            "🏒 Хоккейные клюшки ТОП\n\n"
-            "Нажми кнопку ниже чтобы проверить наличие клюшек 👇\n\n"
-            "Или поделись номером — пришлём уведомление о новых поставках:"
-        ),
-        attachments=[contact_keyboard()]
-    )
+    try:
+        await bot.send_message(
+            user_id=user_id,
+            text=(
+                "🏒 Хоккейные клюшки ТОП\n\n"
+                "Нажми кнопку ниже чтобы проверить наличие клюшек 👇\n\n"
+                "Или поделись номером — пришлём уведомление о новых поставках:"
+            ),
+            attachments=[contact_keyboard()]
+        )
+    except Exception as e:
+        logging.error(f"send_welcome error: {e}")
+        await bot.send_message(
+            user_id=user_id,
+            text="🏒 Хоккейные клюшки ТОП\n\nНажми кнопку ниже чтобы проверить наличие клюшек 👇"
+        )
 
 
 @dp.bot_started()
@@ -90,7 +100,7 @@ async def on_message(event: MessageCreated):
     text = body.text.strip() if body and body.text else ""
     logging.info(f"MESSAGE from {user_id} | {name}: {text}")
 
-    # /start как команда
+    # /start
     if text.lower() in ["/start", "start"]:
         await send_welcome(user_id, name, username)
         return
@@ -103,14 +113,21 @@ async def on_message(event: MessageCreated):
         f"🆔 ID: {user_id}\n"
         f"📝 {text}"
     )
-    await bot.send_message(
-        user_id=user_id,
-        text=(
-            "Открой виджет чтобы проверить наличие клюшек 👇\n\n"
-            "Или напиши нам напрямую: https://max.ru/id164908988785_bot"
-        ),
-        attachments=[contact_keyboard()]
-    )
+    try:
+        await bot.send_message(
+            user_id=user_id,
+            text=(
+                "Открой виджет чтобы проверить наличие клюшек 👇\n\n"
+                "Или напиши нам напрямую: https://max.ru/id164908988785_bot"
+            ),
+            attachments=[contact_keyboard()]
+        )
+    except Exception as e:
+        logging.error(f"send reply error: {e}")
+        await bot.send_message(
+            user_id=user_id,
+            text="Открой виджет чтобы проверить наличие клюшек 👇"
+        )
 
 
 async def main():
