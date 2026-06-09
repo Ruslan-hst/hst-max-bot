@@ -11,7 +11,6 @@ logging.basicConfig(level=logging.INFO)
 
 TOKEN = os.environ.get("MAX_BOT_TOKEN", "")
 OWNER_ID = int(os.environ.get("MAX_OWNER_ID", "0"))
-WIDGET_URL = os.environ.get("WIDGET_URL", "https://heartfelt-taffy-c8d866.netlify.app/")
 
 bot = Bot(TOKEN)
 dp = Dispatcher()
@@ -32,22 +31,13 @@ def contact_keyboard():
     )
 
 
-@dp.bot_started()
-async def on_start(event: BotStarted):
-    user = event.user
-    user_id = user.user_id
-    name = f"{user.first_name or ''} {user.last_name or ''}".strip()
-    username = f"@{user.username}" if user.username else "без ника"
-
-    logging.info(f"BOT STARTED: {user_id} | {name} | {username}")
-
+async def send_welcome(user_id, name, username):
     await notify_owner(
         f"🏒 Открыл склад в MAX!\n\n"
         f"👤 {name}\n"
         f"🔗 {username}\n"
         f"🆔 ID: {user_id}"
     )
-
     await bot.send_message(
         user_id=user_id,
         text=(
@@ -59,6 +49,16 @@ async def on_start(event: BotStarted):
     )
 
 
+@dp.bot_started()
+async def on_bot_started(event: BotStarted):
+    user = event.user
+    user_id = user.user_id
+    name = f"{user.first_name or ''} {user.last_name or ''}".strip()
+    username = f"@{user.username}" if user.username else "без ника"
+    logging.info(f"BOT STARTED: {user_id} | {name} | {username}")
+    await send_welcome(user_id, name, username)
+
+
 @dp.message_created()
 async def on_message(event: MessageCreated):
     user = event.message.sender
@@ -66,32 +66,36 @@ async def on_message(event: MessageCreated):
     name = f"{user.first_name or ''} {user.last_name or ''}".strip()
     username = f"@{user.username}" if user.username else "без ника"
 
-    # Проверяем вложения через body.attachments
     body = event.message.body
     attachments = body.attachments if body and body.attachments else []
 
+    # Контакт
     for att in attachments:
         if isinstance(att, ContactAttachmentPayload):
             phone = att.vcf_info or "не указан"
-            contact_name = att.max_info.first_name if att.max_info else name
             logging.info(f"CONTACT from {user_id}: {phone}")
             await notify_owner(
                 f"📞 Новый контакт из MAX!\n\n"
-                f"👤 {contact_name}\n"
+                f"👤 {name}\n"
                 f"🔗 {username}\n"
                 f"🆔 ID: {user_id}\n"
                 f"📱 Телефон: {phone}"
             )
             await bot.send_message(
                 user_id=user_id,
-                text="✅ Спасибо! Мы сохранили твой контакт и пришлём уведомление о новых поставках."
+                text="✅ Спасибо! Пришлём уведомление о новых поставках."
             )
             return
 
-    # Обычное сообщение
-    text = body.text if body else ""
+    text = body.text.strip() if body and body.text else ""
     logging.info(f"MESSAGE from {user_id} | {name}: {text}")
 
+    # /start как команда
+    if text.lower() in ["/start", "start"]:
+        await send_welcome(user_id, name, username)
+        return
+
+    # Обычное сообщение
     await notify_owner(
         f"💬 Сообщение в MAX боте\n\n"
         f"👤 {name}\n"
@@ -99,12 +103,11 @@ async def on_message(event: MessageCreated):
         f"🆔 ID: {user_id}\n"
         f"📝 {text}"
     )
-
     await bot.send_message(
         user_id=user_id,
         text=(
             "Открой виджет чтобы проверить наличие клюшек 👇\n\n"
-            f"Или напиши нам напрямую: https://max.ru/id164908988785_bot"
+            "Или напиши нам напрямую: https://max.ru/id164908988785_bot"
         ),
         attachments=[contact_keyboard()]
     )
