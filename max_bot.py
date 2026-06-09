@@ -3,7 +3,7 @@ import logging
 import os
 from maxapi import Bot, Dispatcher
 from maxapi.types import (
-    MessageCreated, BotStarted, MessageCallback,
+    MessageCreated, BotStarted,
     RequestContactButton, ButtonsPayload, ContactAttachmentPayload
 )
 
@@ -27,7 +27,6 @@ async def notify_owner(text):
 
 
 def contact_keyboard():
-    """Клавиатура с кнопкой запроса контакта"""
     return ButtonsPayload(
         buttons=[[RequestContactButton(text="📞 Поделиться номером телефона")]]
     )
@@ -49,13 +48,12 @@ async def on_start(event: BotStarted):
         f"🆔 ID: {user_id}"
     )
 
-    # Приветствие + кнопка поделиться контактом
     await bot.send_message(
         user_id=user_id,
         text=(
             "🏒 Хоккейные клюшки ТОП\n\n"
             "Нажми кнопку ниже чтобы проверить наличие клюшек 👇\n\n"
-            "Или поделись номером — мы пришлём уведомление о новых поставках:"
+            "Или поделись номером — пришлём уведомление о новых поставках:"
         ),
         attachments=[contact_keyboard()]
     )
@@ -68,8 +66,10 @@ async def on_message(event: MessageCreated):
     name = f"{user.first_name or ''} {user.last_name or ''}".strip()
     username = f"@{user.username}" if user.username else "без ника"
 
-    # Проверяем — вдруг пришёл контакт
-    attachments = event.message.attachments or []
+    # Проверяем вложения через body.attachments
+    body = event.message.body
+    attachments = body.attachments if body and body.attachments else []
+
     for att in attachments:
         if isinstance(att, ContactAttachmentPayload):
             phone = att.vcf_info or "не указан"
@@ -89,7 +89,7 @@ async def on_message(event: MessageCreated):
             return
 
     # Обычное сообщение
-    text = event.message.body.text if event.message.body else ""
+    text = body.text if body else ""
     logging.info(f"MESSAGE from {user_id} | {name}: {text}")
 
     await notify_owner(
