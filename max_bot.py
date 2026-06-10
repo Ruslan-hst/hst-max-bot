@@ -10,6 +10,18 @@ from maxapi.types.attachments.contact import Contact
 from maxapi.types.attachments.buttons.attachment_button import AttachmentButton
 from maxapi.enums import AttachmentType
 
+import re
+
+def parse_vcard(vcf):
+    if not vcf:
+        return None, None
+    m = re.search(r'TEL[^:]*:([\+\d]+)', vcf)
+    phone = m.group(1) if m else None
+    m2 = re.search(r'FN:([^\n\r]+?)(?:\s+\w+:|END:)', vcf)
+    name = m2.group(1).strip() if m2 else None
+    return phone, name
+
+
 logging.basicConfig(level=logging.INFO)
 
 TOKEN = os.environ.get("MAX_BOT_TOKEN", "")
@@ -90,10 +102,14 @@ async def on_message(event: MessageCreated):
         if isinstance(att, Contact):
             # Contact.payload содержит ContactAttachmentPayload
             if att.payload and isinstance(att.payload, ContactAttachmentPayload):
-                phone = att.payload.vcf_info or "не указан"
+                raw_vcf = att.payload.vcf_info or ""
+                parsed_phone, _ = parse_vcard(raw_vcf)
+                phone = parsed_phone or raw_vcf or "не указан"
                 contact_user = att.payload.max_info
         elif isinstance(att, ContactAttachmentPayload):
-            phone = att.vcf_info or "не указан"
+            raw_vcf = att.vcf_info or ""
+            parsed_phone, _ = parse_vcard(raw_vcf)
+            phone = parsed_phone or raw_vcf or "не указан"
             contact_user = att.max_info
 
         if phone is not None:
