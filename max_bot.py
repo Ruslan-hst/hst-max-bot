@@ -6,6 +6,7 @@ from maxapi.types import (
     MessageCreated, BotStarted,
     RequestContactButton, ButtonsPayload, ContactAttachmentPayload
 )
+from maxapi.types.attachments.contact import Contact
 from maxapi.types.attachments.buttons.attachment_button import AttachmentButton
 from maxapi.enums import AttachmentType
 
@@ -79,14 +80,28 @@ async def on_message(event: MessageCreated):
     body = event.message.body
     attachments = body.attachments if body and body.attachments else []
 
-    # Контакт
+    # Логируем все вложения для диагностики
     for att in attachments:
-        if isinstance(att, ContactAttachmentPayload):
+        logging.info(f"ATTACHMENT type={type(att).__name__} data={att}")
+
+    # Контакт — проверяем оба варианта: Contact и ContactAttachmentPayload
+    for att in attachments:
+        phone = None
+        if isinstance(att, Contact):
+            # Contact.payload содержит ContactAttachmentPayload
+            if att.payload and isinstance(att.payload, ContactAttachmentPayload):
+                phone = att.payload.vcf_info or "не указан"
+                contact_user = att.payload.max_info
+        elif isinstance(att, ContactAttachmentPayload):
             phone = att.vcf_info or "не указан"
+            contact_user = att.max_info
+
+        if phone is not None:
+            contact_name = contact_user.first_name if contact_user else name
             logging.info(f"CONTACT from {user_id}: {phone}")
             await notify_owner(
                 f"📞 Новый контакт из MAX!\n\n"
-                f"👤 {name}\n"
+                f"👤 {contact_name}\n"
                 f"🔗 {username}\n"
                 f"🆔 ID: {user_id}\n"
                 f"📱 Телефон: {phone}"
@@ -100,12 +115,10 @@ async def on_message(event: MessageCreated):
     text = body.text.strip() if body and body.text else ""
     logging.info(f"MESSAGE from {user_id} | {name}: {text}")
 
-    # /start
     if text.lower() in ["/start", "start"]:
         await send_welcome(user_id, name, username)
         return
 
-    # Обычное сообщение
     await notify_owner(
         f"💬 Сообщение в MAX боте\n\n"
         f"👤 {name}\n"
@@ -116,14 +129,11 @@ async def on_message(event: MessageCreated):
     try:
         await bot.send_message(
             user_id=user_id,
-            text=(
-                "Открой виджет чтобы проверить наличие клюшек 👇\n\n"
-                "Или напиши нам напрямую: https://max.ru/id164908988785_bot"
-            ),
+            text="Открой виджет чтобы проверить наличие клюшек 👇",
             attachments=[contact_keyboard()]
         )
     except Exception as e:
-        logging.error(f"send reply error: {e}")
+        logging.error(f"reply error: {e}")
         await bot.send_message(
             user_id=user_id,
             text="Открой виджет чтобы проверить наличие клюшек 👇"
