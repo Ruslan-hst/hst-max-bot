@@ -4,7 +4,7 @@ import os
 from maxapi import Bot, Dispatcher
 from maxapi.types import (
     MessageCreated, BotStarted,
-    RequestContactButton, ButtonsPayload, ContactAttachmentPayload
+    RequestContactButton, ButtonsPayload, ContactAttachmentPayload, LinkButton
 )
 from maxapi.types.attachments.contact import Contact
 from maxapi.types.attachments.buttons.attachment_button import AttachmentButton
@@ -26,9 +26,14 @@ logging.basicConfig(level=logging.INFO)
 
 TOKEN = os.environ.get("MAX_BOT_TOKEN", "")
 OWNER_ID = int(os.environ.get("MAX_OWNER_ID", "0"))
+WIDGET_URL = "https://heartfelt-taffy-c8d866.netlify.app/"
+MANAGER_URL = "https://t.me/hockey_top_bot"
 
 bot = Bot(TOKEN)
 dp = Dispatcher()
+
+# Храним ID пользователей, которым уже показали приветствие
+seen_users = set()
 
 
 async def notify_owner(text):
@@ -47,7 +52,18 @@ def contact_keyboard():
     return AttachmentButton(type=AttachmentType.INLINE_KEYBOARD, payload=payload)
 
 
+def main_keyboard():
+    payload = ButtonsPayload(
+        buttons=[
+            [LinkButton(text="🏒 Проверить наличие", url=WIDGET_URL)],
+            [LinkButton(text="💬 Написать менеджеру", url=MANAGER_URL)]
+        ]
+    )
+    return AttachmentButton(type=AttachmentType.INLINE_KEYBOARD, payload=payload)
+
+
 async def send_welcome(user_id, name, username):
+    seen_users.add(user_id)
     await notify_owner(
         f"🏒 Открыл склад в MAX!\n\n"
         f"👤 {name}\n"
@@ -58,11 +74,12 @@ async def send_welcome(user_id, name, username):
         await bot.send_message(
             user_id=user_id,
             text=(
-                "🏒 Хоккейные клюшки ТОП\n\n"
-                "Нажми кнопку ниже чтобы проверить наличие клюшек 👇\n\n"
-                "Или поделись номером — пришлём уведомление о новых поставках:"
+                "👋 Привет! Это бот склада «Хоккейные клюшки ТОП».\n\n"
+                "Я не отвечаю на вопросы текстом, но могу показать тебе склад магазина.\n\n"
+                "Если у вас есть какие-то вопросы — напишите менеджеру, "
+                "или если хотите посмотреть складской запас — нажмите «Проверить наличие»."
             ),
-            attachments=[contact_keyboard()]
+            attachments=[main_keyboard()]
         )
     except Exception as e:
         logging.error(f"send_welcome error: {e}")
@@ -142,18 +159,31 @@ async def on_message(event: MessageCreated):
         f"🆔 ID: {user_id}\n"
         f"📝 {text}"
     )
+
+    if user_id not in seen_users:
+        seen_users.add(user_id)
+        reply_text = (
+            "👋 Привет! Это бот склада «Хоккейные клюшки ТОП».\n\n"
+            "Я не отвечаю на вопросы текстом, но могу показать тебе склад магазина.\n\n"
+            "Если у вас есть какие-то вопросы — напишите менеджеру, "
+            "или если хотите посмотреть складской запас — нажмите «Проверить наличие»."
+        )
+    else:
+        reply_text = (
+            "Я не решаю такие вопросы 🙂\n"
+            "Если у вас есть вопрос — напишите менеджеру, "
+            "или нажмите «Проверить наличие» для просмотра склада."
+        )
+
     try:
         await bot.send_message(
             user_id=user_id,
-            text="Открой виджет чтобы проверить наличие клюшек 👇",
-            attachments=[contact_keyboard()]
+            text=reply_text,
+            attachments=[main_keyboard()]
         )
     except Exception as e:
         logging.error(f"reply error: {e}")
-        await bot.send_message(
-            user_id=user_id,
-            text="Открой виджет чтобы проверить наличие клюшек 👇"
-        )
+        await bot.send_message(user_id=user_id, text=reply_text)
 
 
 async def main():
