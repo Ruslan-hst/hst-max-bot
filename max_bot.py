@@ -4,7 +4,7 @@ import os
 from maxapi import Bot, Dispatcher
 from maxapi.types import (
     MessageCreated, BotStarted,
-    RequestContactButton, ButtonsPayload, ContactAttachmentPayload, LinkButton
+    RequestContactButton, ButtonsPayload, ContactAttachmentPayload, LinkButton, OpenAppButton
 )
 from maxapi.types.attachments.contact import Contact
 from maxapi.types.attachments.buttons.attachment_button import AttachmentButton
@@ -28,6 +28,7 @@ TOKEN = os.environ.get("MAX_BOT_TOKEN", "")
 OWNER_ID = int(os.environ.get("MAX_OWNER_ID", "0"))
 WIDGET_URL = "https://heartfelt-taffy-c8d866.netlify.app/"
 MANAGER_URL = "https://t.me/hockey_top_bot"
+MAX_BOT_USERNAME = "id164908988785_1_bot"
 
 bot = Bot(TOKEN)
 dp = Dispatcher()
@@ -55,7 +56,7 @@ def contact_keyboard():
 def main_keyboard():
     payload = ButtonsPayload(
         buttons=[
-            [LinkButton(text="🏒 Проверить наличие", url=WIDGET_URL)],
+            [OpenAppButton(text="🏒 Проверить наличие", web_app=MAX_BOT_USERNAME)],
             [LinkButton(text="💬 Написать менеджеру", url=MANAGER_URL)]
         ]
     )
@@ -75,9 +76,7 @@ async def send_welcome(user_id, name, username):
             user_id=user_id,
             text=(
                 "👋 Привет! Это бот склада «Хоккейные клюшки ТОП».\n\n"
-                "Я не отвечаю на вопросы текстом, но могу показать тебе склад магазина.\n\n"
-                "Если у вас есть какие-то вопросы — напишите менеджеру, "
-                "или если хотите посмотреть складской запас — нажмите «Проверить наличие»."
+                "Если у вас есть какие-то вопросы — напишите менеджеру."
             ),
             attachments=[main_keyboard()]
         )
@@ -164,9 +163,7 @@ async def on_message(event: MessageCreated):
         seen_users.add(user_id)
         reply_text = (
             "👋 Привет! Это бот склада «Хоккейные клюшки ТОП».\n\n"
-            "Я не отвечаю на вопросы текстом, но могу показать тебе склад магазина.\n\n"
-            "Если у вас есть какие-то вопросы — напишите менеджеру, "
-            "или если хотите посмотреть складской запас — нажмите «Проверить наличие»."
+            "Если у вас есть какие-то вопросы — напишите менеджеру."
         )
     else:
         reply_text = (
